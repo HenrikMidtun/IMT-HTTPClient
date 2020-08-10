@@ -14,7 +14,7 @@ OneWire oneWire(ONE_WIRE_BUS);
 DS18B20 water_temp_sensor(&oneWire);
 BME280 airSensor;
 const byte photoPin = A8;
-GP20U7 gps = GP20U7(Serial1) //RX pin 19
+GP20U7 gps = GP20U7(Serial2); //RX pin 19
 Geolocation currentLocation;
 
 
@@ -38,15 +38,15 @@ void setup()
   /*
    * GPS
    */
-  Serial1.begin(9600);
-  gps.begin()
+  Serial2.begin(9600);
+  gps.begin();
   
   water_temp_sensor.begin();
   Wire.begin();
   if (airSensor.beginI2C() == false) //Begin communication over I2C
   {
-    Serial.println("The sensor did not respond. Please check wiring.");
-    while(1); //Freeze
+    Serial.println("The airsensor did not respond. Please check wiring.");
+    //while(1);
   }
 }
 
@@ -75,30 +75,25 @@ void clearData(){
 }
 
 void readData(){
-  /*
   temp_water_C = getWaterTemp();
   temp_air_C = airSensor.readTempC() ;
   humidity_rel = airSensor.readFloatHumidity();
   pressure_Pa = airSensor.readFloatPressure();
   light_res = analogRead(photoPin);
-  */
-  long interval = 3000;
-  unsigned long time_reference = millis();
-  while(millis()-time_reference < interval){getCoordinates();}
+  getCoordinates();
   
 }
 
 void updateJson(){
-  /*
   data["general"]["water_temp"] = temp_water_C;
   data["general"]["air_temp"] = temp_air_C;
   data["general"]["humidity"] = humidity_rel;
   data["general"]["pressure"] = pressure_Pa;
   data["general"]["light"] = light_res;
-  */
   data["general"]["longitude"] = longitude;
-  data["general"]"latitude"] = latitude;
+  data["general"]["latitude"] = latitude;
   serializeJson(data, Serial);
+  Serial.println();
 }
 
 float getWaterTemp(){
@@ -108,19 +103,24 @@ float getWaterTemp(){
   return temp;
 }
 
-void getCoordinates() {
-  if (gps.read()) {
-    currentLocation = gps.getGeolocation();
-    longitude = currentLocation.longitude;
-    latitude = currentLocation.latitude;
-    Serial.print("    Latitude: ");
-    Serial.println(latitude, 5);
 
-    Serial.print("    Longitude: ");
-    Serial.println(longitude, 5);
+/*
+ *  Updates global latitude and longitude variables 
+ */
+int getCoordinates() {
+  unsigned long time_reference = millis();
+  while(millis()-time_reference < 3000 ){
+    if (gps.read()) {
+      currentLocation = gps.getGeolocation();
+      latitude = currentLocation.latitude;
+      longitude = currentLocation.longitude;
+      return 1;
+    }
   }
+  longitude = NULL;
+  latitude = NULL;
+  return -1;
 }
-
 float getLongitude(){
   
 }
