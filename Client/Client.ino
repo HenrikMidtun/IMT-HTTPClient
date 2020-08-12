@@ -6,7 +6,6 @@
 #include "LowPower.h"
 #include <gp20u7.h>
 #include <SPI.h>
-//#include <SparkFunLSM9DS1.h>
 
 /*
    Sensors
@@ -18,7 +17,6 @@ DS18B20 water_temp_sensor(&oneWire);
 BME280 airSensor;
 GP20U7 gps = GP20U7(Serial2); //RX pin 19
 Geolocation currentLocation;
-//LSM9DS1 imu;
 
 /*
  * Frequency (Hz) and Period (seconds) of sensor measurements
@@ -45,12 +43,7 @@ float air_pressure[(int)ceil(AIR_FREQ*AIR_PERIOD)];
 float light_res[(int)ceil(LIGHT_FREQ*LIGHT_PERIOD)];
 float longitude[(int)ceil(GPS_FREQ*GPS_PERIOD)];
 float latitude[(int)ceil(GPS_FREQ*GPS_PERIOD)];
-//float g_x[(int)ceil(IMU_FREQ*IMU_PERIOD)];
-//float g_y[(int)ceil(IMU_FREQ*IMU_PERIOD)];
-//float g_z[(int)ceil(IMU_FREQ*IMU_PERIOD)];
-//float a_x[(int)ceil(IMU_FREQ*IMU_PERIOD)];
-//float a_y[(int)ceil(IMU_FREQ*IMU_PERIOD)];
-//float a_z[(int)ceil(IMU_FREQ*IMU_PERIOD)];
+
 
 void setup()
 {
@@ -67,10 +60,6 @@ void setup()
   {
     Serial.println("Failed to communicate with BME280.");
   }
-//  if (imu.begin() == false) // with no arguments, this uses default addresses (AG:0x6B, M:0x1E) and i2c port (Wire).
-//  {
-//    Serial.println("Failed to communicate with LSM9DS1.");
-//  }
 }
 
 void loop()
@@ -101,15 +90,7 @@ void clearData() {
   memset(&air_pressure,0x00, (int)ceil(AIR_FREQ*AIR_PERIOD));
   memset(&light_res,0x00, (int)ceil(LIGHT_FREQ*LIGHT_PERIOD));
   memset(&longitude,0x00, (int)ceil(GPS_FREQ*GPS_PERIOD));
-  memset(&latitude,0x00, (int)ceil(GPS_FREQ*GPS_PERIOD));
-//  memset(&g_x,0x00, (int)ceil(IMU_FREQ*IMU_PERIOD));
-//  memset(&g_y,0x00, (int)ceil(IMU_FREQ*IMU_PERIOD));
-//  memset(&g_z,0x00, (int)ceil(IMU_FREQ*IMU_PERIOD));
-//  memset(&a_x,0x00, (int)ceil(IMU_FREQ*IMU_PERIOD));
-//  memset(&a_y,0x00, (int)ceil(IMU_FREQ*IMU_PERIOD));
-//  memset(&a_z,0x00, (int)ceil(IMU_FREQ*IMU_PERIOD));
-  
-  
+  memset(&latitude,0x00, (int)ceil(GPS_FREQ*GPS_PERIOD)); 
 }
 /*
  *Les data 
@@ -132,7 +113,6 @@ void readData() {
   periodicRead(WATER_PERIOD, WATER_FREQ, readWaterTemp);
   periodicRead(LIGHT_PERIOD, LIGHT_FREQ, readLightIntensity);
   periodicRead(GPS_PERIOD, GPS_FREQ, readCoordinates);
-  //imu_read();
 }
 
 
@@ -165,13 +145,6 @@ void updateJson() {
   data["general"]["light"] = array_avg(light_res, (int)ceil(LIGHT_FREQ*LIGHT_PERIOD));
   data["general"]["longitude"] = array_avg(longitude, (int)ceil(GPS_FREQ*GPS_PERIOD));
   data["general"]["latitude"] = array_avg(latitude, (int)ceil(GPS_FREQ*GPS_PERIOD));
-
-//  data["personal"]["gx"] = imu.calcGyro(imu.gx);
-//  data["personal"]["gy"] = imu.calcGyro(imu.gy);
-//  data["personal"]["gz"] = imu.calcGyro(imu.gz);
-//  data["personal"]["ax"] = imu.calcAccel(imu.ax);
-//  data["personal"]["ay"] = imu.calcAccel(imu.ay);
-//  data["personal"]["az"] = imu.calcAccel(imu.az);
   serializeJson(data, Serial);
   Serial.println();
 }
@@ -192,7 +165,6 @@ float getWaterTemp() {
   return w_temp;
 }
 
-
 /*
     Updates global latitude and longitude variables
 */
@@ -201,20 +173,6 @@ void getCoordinates() {
     currentLocation = gps.getGeolocation();
   }
 }
-
-//void imu_read() {
-//  /*
-//   *  Ta 4 målinger i sekundet. 
-//   *  Ta målinger i 5 minutter.
-//   *  -> 4*5*60 målinger * 4 bytes
-//   */
-//  if (imu.gyroAvailable()) {
-//    imu.readGyro();
-//  }
-//  if (imu.accelAvailable()) {
-//    imu.readAccel();
-//  }    
-//}
 
 float array_avg(float* arr, int len){
   float sum=0;
