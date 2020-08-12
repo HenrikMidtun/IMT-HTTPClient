@@ -78,11 +78,6 @@ void loop()
 /*
    Data handling
 */
-
-/*
-   clearData does not work at the moment because readings are gotten from the sensors directly.
-   Have to check if they are connected and returning fresh data.
-*/
 void clearData() {
   memset(&water_temp,0x00, (int)ceil(WATER_FREQ*WATER_PERIOD));
   memset(&air_temp,0x00, (int)ceil(AIR_FREQ*AIR_PERIOD));
@@ -92,9 +87,6 @@ void clearData() {
   memset(&longitude,0x00, (int)ceil(GPS_FREQ*GPS_PERIOD));
   memset(&latitude,0x00, (int)ceil(GPS_FREQ*GPS_PERIOD)); 
 }
-/*
- *Les data 
- */
 
 void periodicRead(int period, double freq, void readFunc(int)){
   unsigned long time_reference = millis();
@@ -114,7 +106,6 @@ void readData() {
   periodicRead(LIGHT_PERIOD, LIGHT_FREQ, readLightIntensity);
   periodicRead(GPS_PERIOD, GPS_FREQ, readCoordinates);
 }
-
 
 void readWaterTemp(int index){
   water_temp[index] = getWaterTemp();
@@ -136,19 +127,6 @@ void readCoordinates(int index){
   latitude[index] = currentLocation.latitude;
 }
 
-
-void updateJson() {
-  data["general"]["water_temp"] = array_avg(water_temp, (int)ceil(WATER_FREQ*WATER_PERIOD));
-  data["general"]["air_temp"] = array_avg(air_temp, (int)ceil(AIR_FREQ*AIR_PERIOD));
-  data["general"]["humidity"] = array_avg(air_humidity, (int)ceil(AIR_FREQ*AIR_PERIOD));
-  data["general"]["pressure"] = array_avg(air_pressure, (int)ceil(AIR_FREQ*AIR_PERIOD));
-  data["general"]["light"] = array_avg(light_res, (int)ceil(LIGHT_FREQ*LIGHT_PERIOD));
-  data["general"]["longitude"] = array_avg(longitude, (int)ceil(GPS_FREQ*GPS_PERIOD));
-  data["general"]["latitude"] = array_avg(latitude, (int)ceil(GPS_FREQ*GPS_PERIOD));
-  serializeJson(data, Serial);
-  Serial.println();
-}
-
 float getWaterTemp() {
   water_temp_sensor.requestTemperatures();
   float w_temp = 0;
@@ -165,13 +143,26 @@ float getWaterTemp() {
   return w_temp;
 }
 
-/*
-    Updates global latitude and longitude variables
-*/
 void getCoordinates() {
   if(gps.read()){
     currentLocation = gps.getGeolocation();
   }
+}
+
+/*
+ * Utilities
+ */
+
+void updateJson() {
+  data["general"]["water_temp"] = array_avg(water_temp, (int)ceil(WATER_FREQ*WATER_PERIOD));
+  data["general"]["air_temp"] = array_avg(air_temp, (int)ceil(AIR_FREQ*AIR_PERIOD));
+  data["general"]["humidity"] = array_avg(air_humidity, (int)ceil(AIR_FREQ*AIR_PERIOD));
+  data["general"]["pressure"] = array_avg(air_pressure, (int)ceil(AIR_FREQ*AIR_PERIOD));
+  data["general"]["light"] = array_avg(light_res, (int)ceil(LIGHT_FREQ*LIGHT_PERIOD));
+  data["general"]["longitude"] = array_avg(longitude, (int)ceil(GPS_FREQ*GPS_PERIOD));
+  data["general"]["latitude"] = array_avg(latitude, (int)ceil(GPS_FREQ*GPS_PERIOD));
+  serializeJson(data, Serial);
+  Serial.println();
 }
 
 float array_avg(float* arr, int len){
