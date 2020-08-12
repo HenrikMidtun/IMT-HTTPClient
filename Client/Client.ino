@@ -15,7 +15,7 @@
 OneWire oneWire(ONE_WIRE_BUS);
 DS18B20 water_temp_sensor(&oneWire);
 BME280 airSensor;
-GP20U7 gps = GP20U7(Serial2); //RX pin 19
+GP20U7 gps = GP20U7(Serial2); //RX pin for Serial 2
 Geolocation currentLocation;
 
 /*
@@ -29,8 +29,6 @@ Geolocation currentLocation;
 #define LIGHT_PERIOD 10
 #define GPS_FREQ 1
 #define GPS_PERIOD 10
-//#define IMU_FREQ 4
-//#define IMU_PERIOD 300
 
 /*
  * JSON and global data fields
@@ -107,6 +105,12 @@ void readData() {
   periodicRead(GPS_PERIOD, GPS_FREQ, readCoordinates);
 }
 
+<<<<<<< HEAD
+=======
+/*
+ * Sensor reads
+ */
+>>>>>>> gps
 void readWaterTemp(int index){
   water_temp[index] = getWaterTemp();
 }
@@ -122,9 +126,20 @@ void readLightIntensity(int index){
 }
 
 void readCoordinates(int index){
+<<<<<<< HEAD
   getCoordinates();
   longitude[index] = currentLocation.longitude;
   latitude[index] = currentLocation.latitude;
+=======
+  if(getCoordinates()){
+    longitude[index] = currentLocation.longitude;
+    latitude[index] = currentLocation.latitude;  
+  }
+  else{
+    longitude[index] = 0;
+    latitude[index] = 0;
+  }
+>>>>>>> gps
 }
 
 float getWaterTemp() {
@@ -143,10 +158,21 @@ float getWaterTemp() {
   return w_temp;
 }
 
+<<<<<<< HEAD
 void getCoordinates() {
   if(gps.read()){
     currentLocation = gps.getGeolocation();
+=======
+int getCoordinates() {
+  unsigned long time_reference = millis();
+  while(millis()-time_reference < 800 ){
+    if (gps.read()) {
+      currentLocation = gps.getGeolocation();
+      return 1;
+    }
+>>>>>>> gps
   }
+  return 0;
 }
 
 /*
