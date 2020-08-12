@@ -11,11 +11,11 @@
 /*
    Sensors
 */
-#define ONE_WIRE_BUS 40
+#define ONE_WIRE_BUS 50
+#define PHOTO_PIN A8
 OneWire oneWire(ONE_WIRE_BUS);
 DS18B20 water_temp_sensor(&oneWire);
 BME280 airSensor;
-const byte photoPin = A8;
 GP20U7 gps = GP20U7(Serial2); //RX pin 19
 Geolocation currentLocation;
 //LSM9DS1 imu;
@@ -130,7 +130,7 @@ void periodicRead(int period, double freq, void readFunc(int)){
 void readData() {
   periodicRead(AIR_PERIOD, AIR_FREQ, readAirSensor);
   periodicRead(WATER_PERIOD, WATER_FREQ, readWaterTemp);
-  periodicRead(LIGHT_PERIOD, LIGHT_FREQ, readLightIntensity);
+  //periodicRead(LIGHT_PERIOD, LIGHT_FREQ, readLightIntensity);
   periodicRead(GPS_PERIOD, GPS_FREQ, readCoordinates);
   //imu_read();
 }
@@ -147,7 +147,7 @@ void readAirSensor(int index){
 }
 
 void readLightIntensity(int index){
-  light_res[index] = analogRead(photoPin);
+  light_res[index] = analogRead(PHOTO_PIN);
 }
 
 void readCoordinates(int index){
@@ -159,12 +159,12 @@ void readCoordinates(int index){
 
 void updateJson() {
   data["general"]["water_temp"] = array_avg(water_temp, (int)ceil(WATER_FREQ*WATER_PERIOD));
-  data["general"]["air_temp"] = array_avg(air_temp, (int)ceil(AIR_FREQ*AIR_PERIOD));
-  data["general"]["humidity"] = array_avg(air_humidity, (int)ceil(AIR_FREQ*AIR_PERIOD));
-  data["general"]["pressure"] = array_avg(air_pressure, (int)ceil(AIR_FREQ*AIR_PERIOD));
-  data["general"]["light"] = array_avg(light_res, (int)ceil(LIGHT_FREQ*LIGHT_PERIOD));
-  data["general"]["longitude"] = array_avg(longitude, (int)ceil(GPS_FREQ*GPS_PERIOD));
-  data["general"]["latitude"] = array_avg(latitude, (int)ceil(GPS_FREQ*GPS_PERIOD));
+  //data["general"]["air_temp"] = array_avg(air_temp, (int)ceil(AIR_FREQ*AIR_PERIOD));
+  //data["general"]["humidity"] = array_avg(air_humidity, (int)ceil(AIR_FREQ*AIR_PERIOD));
+  //data["general"]["pressure"] = array_avg(air_pressure, (int)ceil(AIR_FREQ*AIR_PERIOD));
+  //data["general"]["light"] = array_avg(light_res, (int)ceil(LIGHT_FREQ*LIGHT_PERIOD));
+  //data["general"]["longitude"] = array_avg(longitude, (int)ceil(GPS_FREQ*GPS_PERIOD));
+  //data["general"]["latitude"] = array_avg(latitude, (int)ceil(GPS_FREQ*GPS_PERIOD));
 
 //  data["personal"]["gx"] = imu.calcGyro(imu.gx);
 //  data["personal"]["gy"] = imu.calcGyro(imu.gy);
@@ -178,12 +178,18 @@ void updateJson() {
 
 float getWaterTemp() {
   water_temp_sensor.requestTemperatures();
-  float temperature = 0;
+  float w_temp = 0;
   
-  while(!water_temp_sensor.isConversionComplete(){
-    temperature = water_temp_sensor.getTempC();
+  uint32_t timeout = millis();
+  while (!water_temp_sensor.isConversionComplete())
+  {
+    if (millis() - timeout >= 800) // check for timeout, 800ms
+    {
+      return w_temp;
+    }
   }
-  return temperature;
+  w_temp = water_temp_sensor.getTempC();
+  return w_temp;
 }
 
 
@@ -215,10 +221,12 @@ float array_avg(float* arr, int len){
   int zero_fields=0;
   for(int i=0; i<len; i++){
     sum=sum+arr[i];
+    Serial.print(arr[i]);
     if(arr[i] == 0){
       zero_fields++;
     }
   }
+  Serial.println();
   float avg = 0;
   if(len-zero_fields > 0){
     avg = sum/(len-zero_fields);  
