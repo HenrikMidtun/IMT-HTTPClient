@@ -42,16 +42,18 @@ float light_res[(int)ceil(LIGHT_FREQ*LIGHT_PERIOD)];
 float longitude[(int)ceil(GPS_FREQ*GPS_PERIOD)];
 float latitude[(int)ceil(GPS_FREQ*GPS_PERIOD)];
 
+/*
+ * Message frequency (seconds)
+ */
+#define MSG_INTERVAL 10
+
 
 void setup()
 {
   Serial.begin(9600);
-  /*
-     GPS
-  */
+  checkInterval();
   Serial2.begin(9600);
   gps.begin();
-
   water_temp_sensor.begin();
   Wire.begin();
   if (airSensor.beginI2C() == false) //Begin communication over I2C
@@ -65,12 +67,13 @@ void loop()
   //Reconnect to GSM
   
   //Send data every hour! Take into account reading times in the sleep.
-  
+  unsigned long time_reference = millis();
   clearData();
   readData();
   updateJson();
   //Send data
-  //waitRoutine();
+  unsigned long time_elapsed = millis() - time_reference;
+  waitRoutine(time_elapsed);
 }
 
 /*
@@ -105,12 +108,9 @@ void readData() {
   periodicRead(GPS_PERIOD, GPS_FREQ, readCoordinates);
 }
 
-<<<<<<< HEAD
-=======
 /*
  * Sensor reads
  */
->>>>>>> gps
 void readWaterTemp(int index){
   water_temp[index] = getWaterTemp();
 }
@@ -126,11 +126,6 @@ void readLightIntensity(int index){
 }
 
 void readCoordinates(int index){
-<<<<<<< HEAD
-  getCoordinates();
-  longitude[index] = currentLocation.longitude;
-  latitude[index] = currentLocation.latitude;
-=======
   if(getCoordinates()){
     longitude[index] = currentLocation.longitude;
     latitude[index] = currentLocation.latitude;  
@@ -139,7 +134,6 @@ void readCoordinates(int index){
     longitude[index] = 0;
     latitude[index] = 0;
   }
->>>>>>> gps
 }
 
 float getWaterTemp() {
@@ -158,11 +152,6 @@ float getWaterTemp() {
   return w_temp;
 }
 
-<<<<<<< HEAD
-void getCoordinates() {
-  if(gps.read()){
-    currentLocation = gps.getGeolocation();
-=======
 int getCoordinates() {
   unsigned long time_reference = millis();
   while(millis()-time_reference < 800 ){
@@ -170,7 +159,6 @@ int getCoordinates() {
       currentLocation = gps.getGeolocation();
       return 1;
     }
->>>>>>> gps
   }
   return 0;
 }
@@ -207,10 +195,26 @@ float array_avg(float* arr, int len){
   return  avg;
 }
 
-void waitRoutine() {
-  LowPower.powerDown(SLEEP_8S, ADC_OFF, BOD_OFF);
+/*
+ * Should handle if elapsed time is longer than msg interval
+ */
+void waitRoutine(unsigned long elapsed) {
+  int seconds_left = floor(MSG_INTERVAL - elapsed / 1000);
+  if(seconds_left > 0){
+    int sleep_cycles = floor(seconds_left/8);
+    int remaining_seconds = seconds_left%8;
+    delay(remaining_seconds*1000);
+    for(int i=0; i<sleep_cycles;i++){
+      LowPower.powerDown(SLEEP_8S, ADC_OFF, BOD_OFF);
+    }    
+  }
 }
 
+void checkInterval(){
+  if(MSG_INTERVAL < AIR_PERIOD + WATER_PERIOD + GPS_PERIOD + LIGHT_PERIOD){
+    Serial.println("WARNING: Message Interval shorter than Measurement Period!");
+  }
+}
 /*
    Network
 */
