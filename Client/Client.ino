@@ -3,19 +3,30 @@
 #include <Wire.h>
 #include <ArduinoJson.h>
 #include "SparkFunBME280.h"
-#include "LowPower.h"
+#include <ArduinoLowPower.h>
 #include <gp20u7.h>
 #include <SPI.h>
+#include <MKRNB.h>
+#include <PubSubClient.h>
+
+
+/*/
+ *      TODO
+ *  
+ *  -Network functionality
+ *  -MQTT
+ *  -Timestamps
+ */
 
 /*
    Sensors
 */
-#define ONE_WIRE_BUS 50
-#define PHOTO_PIN A8
+#define ONE_WIRE_BUS 5
+#define PHOTO_PIN A1
 OneWire oneWire(ONE_WIRE_BUS);
 DS18B20 water_temp_sensor(&oneWire);
 BME280 airSensor;
-GP20U7 gps = GP20U7(Serial2); //RX pin for Serial 2
+GP20U7 gps = GP20U7(Serial1); //RX pin for Serial1 (PIN 13, MKR 1500)
 Geolocation currentLocation;
 
 /*
@@ -47,35 +58,59 @@ float latitude[(int)ceil(GPS_FREQ*GPS_PERIOD)];
  */
 #define MSG_INTERVAL 10
 
+/*/
+ * Network
+ */
+ const char PINNUMBER[] = "";
+ #define MQTT_CLIENT_NAME "ntnu_test"
+ char mqttBroker[] = "illustrations.marin.ntnu.no";
+ int mqttPort = 1883;
+ char pubTopic[] = "ntnu/test/1";
+
+ NBClient nbClient;
+ GPRS gprs;
+ NB nbAccess;
+ PubSubClient client(nbClient);
+ 
 
 void setup()
 {
   Serial.begin(9600);
+  while(!Serial){
+    ;
+  }
+  writeSummary();
   checkInterval();
-  Serial2.begin(9600);
+  sensorBegin();
+  lteConnect();
+}
+
+void loop()
+{ 
+  //Send data every hour! Take into account reading times in the sleep.
+  
+  unsigned long time_reference = millis();
+  clearData();
+  readData();
+  updateJson();
+  sendData();
+  unsigned long time_elapsed = millis() - time_reference;
+  waitRoutine(time_elapsed);
+}
+
+/*/
+ * Sensor setup
+ */
+
+void sensorBegin(){
   gps.begin();
   water_temp_sensor.begin();
   Wire.begin();
   if (airSensor.beginI2C() == false) //Begin communication over I2C
   {
-    Serial.println("Failed to communicate with BME280.");
+    Serial.println("WARNING: Failed to communicate with BME280.");
   }
 }
-
-void loop()
-{
-  //Reconnect to GSM
-  
-  //Send data every hour! Take into account reading times in the sleep.
-  unsigned long time_reference = millis();
-  clearData();
-  readData();
-  updateJson();
-  //Send data
-  unsigned long time_elapsed = millis() - time_reference;
-  waitRoutine(time_elapsed);
-}
-
 /*
    Data handling
 */
@@ -102,6 +137,7 @@ void periodicRead(int period, double freq, void readFunc(int)){
 }
 
 void readData() {
+  Serial.println("readData()");
   periodicRead(AIR_PERIOD, AIR_FREQ, readAirSensor);
   periodicRead(WATER_PERIOD, WATER_FREQ, readWaterTemp);
   periodicRead(LIGHT_PERIOD, LIGHT_FREQ, readLightIntensity);
@@ -125,16 +161,6 @@ void readLightIntensity(int index){
   light_res[index] = analogRead(PHOTO_PIN);
 }
 
-void readCoordinates(int index){
-  if(getCoordinates()){
-    longitude[index] = currentLocation.longitude;
-    latitude[index] = currentLocation.latitude;  
-  }
-  else{
-    longitude[index] = 0;
-    latitude[index] = 0;
-  }
-}
 
 float getWaterTemp() {
   water_temp_sensor.requestTemperatures();
@@ -150,6 +176,18 @@ float getWaterTemp() {
   }
   w_temp = water_temp_sensor.getTempC();
   return w_temp;
+}
+
+
+void readCoordinates(int index){
+  if(getCoordinates()){
+    longitude[index] = currentLocation.longitude;
+    latitude[index] = currentLocation.latitude;  
+  }
+  else{
+    longitude[index] = 0;
+    latitude[index] = 0;
+  }
 }
 
 int getCoordinates() {
@@ -175,8 +213,6 @@ void updateJson() {
   data["general"]["light"] = array_avg(light_res, (int)ceil(LIGHT_FREQ*LIGHT_PERIOD));
   data["general"]["longitude"] = array_avg(longitude, (int)ceil(GPS_FREQ*GPS_PERIOD));
   data["general"]["latitude"] = array_avg(latitude, (int)ceil(GPS_FREQ*GPS_PERIOD));
-  serializeJson(data, Serial);
-  Serial.println();
 }
 
 float array_avg(float* arr, int len){
@@ -199,16 +235,13 @@ float array_avg(float* arr, int len){
  * Should handle if elapsed time is longer than msg interval
  */
 void waitRoutine(unsigned long elapsed) {
+  Serial.println("waitRoutine()");
   int seconds_left = floor(MSG_INTERVAL - elapsed / 1000);
   if(seconds_left > 0){
-    int sleep_cycles = floor(seconds_left/8);
-    int remaining_seconds = seconds_left%8;
-    delay(remaining_seconds*1000);
-    for(int i=0; i<sleep_cycles;i++){
-      LowPower.powerDown(SLEEP_8S, ADC_OFF, BOD_OFF);
-    }    
-  }
+    LowPower.sleep(seconds_left*1000);
+  }    
 }
+
 
 void checkInterval(){
   if(MSG_INTERVAL < AIR_PERIOD + WATER_PERIOD + GPS_PERIOD + LIGHT_PERIOD){
@@ -218,7 +251,80 @@ void checkInterval(){
 /*
    Network
 */
+void sendData(){
+  Serial.println("sendData()");
+  if(!client.connected()){
+    reconnect();
+  }
+  char buffer[200];
+  size_t n = serializeJson(data, buffer);
+  client.publish(pubTopic, buffer, n);
+  Serial.println("-> Published data");
+}
+
+void lteConnect(){
+  Serial.println("lteConnect()");
+  boolean connected = false;
+
+  while(!connected) {
+    if((nbAccess.begin(PINNUMBER) == NB_READY) && (gprs.attachGPRS() == GPRS_READY)) //takes approximately 5 minutes
+    {
+      connected = true;
+    } 
+    else{
+      Serial.println("-> Not connected");
+      delay(1000);
+    }
+  }
+  Serial.println("-> Connected");
+
+  //set the connection
+  client.setServer(mqttBroker, mqttPort);
+}
 
 void reconnect() {
-
+  Serial.println("Reconnect()");
+  unsigned long time_reference = millis();
+  while (millis() - time_reference < 20000) {
+    // Attemp to connect for 20 seconds
+    if (client.connect(MQTT_CLIENT_NAME)){
+      Serial.println("-> Reconnected");
+      return;
+    } 
+    else{
+      // Wait 1 second before retrying
+      delay(1000);
+    }
+  }
+  Serial.println("-> Reconnect timed out");
 }
+
+/*/
+ * Utils
+ */
+
+ void writeSummary(){
+  Serial.println("Hello, I am Agnes 3!");
+  Serial.println();
+  Serial.println("\tFREQ\tPERIOD");
+  Serial.print("WATER\t");
+  Serial.print(WATER_FREQ);
+  Serial.print("\t");
+  Serial.println(WATER_PERIOD);
+  Serial.print("AIR\t");
+  Serial.print(AIR_FREQ);
+  Serial.print("\t");
+  Serial.println(AIR_PERIOD);
+  Serial.print("LIGHT\t");
+  Serial.print(LIGHT_FREQ);
+  Serial.print("\t");
+  Serial.println(LIGHT_PERIOD);
+  Serial.print("GPS\t");
+  Serial.print(GPS_FREQ);
+  Serial.print("\t");
+  Serial.println(GPS_PERIOD);
+  Serial.println();
+  Serial.print("MSG INTERVAL\t");
+  Serial.println(MSG_INTERVAL);
+  Serial.println();
+ }
