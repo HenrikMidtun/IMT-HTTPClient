@@ -33,16 +33,16 @@ GP20U7 gps = GP20U7(Serial1); //RX pin for Serial1 (PIN 13, MKR 1500)
 /*
  * Frequency (Hz) and Period (seconds) of sensor measurements
  */
-#define WATER_FREQ    0.2
-#define WATER_PERIOD  10
-#define AIR_FREQ      0.2
-#define AIR_PERIOD    10
-#define LIGHT_FREQ    0.2
-#define LIGHT_PERIOD  10
-#define GPS_FREQ      1
-#define GPS_PERIOD    10
-#define VOLTAGE_FREQ 0.1
-#define VOLTAGE_PERIOD 5
+#define WATER_FREQ      0.2
+#define WATER_PERIOD    0
+#define AIR_FREQ        0.2
+#define AIR_PERIOD      0
+#define LIGHT_FREQ      0.2
+#define LIGHT_PERIOD    5
+#define GPS_FREQ        1
+#define GPS_PERIOD      0
+#define VOLTAGE_FREQ    0.2
+#define VOLTAGE_PERIOD  5
 
 /*
  * Message frequency (seconds)
@@ -75,7 +75,7 @@ Geolocation currentLocation; //GPS struct
 const char PIN_CODE[] = "";
 char mqttBroker[] = "illustrations.marin.ntnu.no";
 int mqttPort = 1883;
-char pubTopic[] = "ntnu/ntnu-agnes/data";
+char pubTopic[] = "ntnu/ntnu-agnes/data"; //format: ntnu/username/data
 
 NBClient nbClient;
 GPRS gprs;
@@ -92,7 +92,7 @@ void setup()
   checkInterval();
   sensorBegin();
   mqttClientConfiguration();
-  makeConnections();
+  makeConnections(); //comment out if no network, blocking function lteConnect
 }
 
 void loop()
@@ -101,9 +101,7 @@ void loop()
   clearData();
   readData();
   updateJson();
-  if(checkConnection()){
-     sendData();   
-  }
+  if(checkConnection()) sendData();   //comment out if no network, blocking function lteConnect
   unsigned long time_elapsed = millis() - time_reference;
   waitRoutine(time_elapsed);
 }
@@ -139,6 +137,9 @@ void clearData() {
 }
 
 void periodicRead(int period, double freq, void readFunc(int)){
+  if(period == 0 || freq == 0){
+    return;
+  }
   unsigned long time_reference = millis();
   unsigned long previous_time;
   int i = 0;
@@ -158,6 +159,7 @@ void readData() {
   periodicRead(GPS_PERIOD, GPS_FREQ, readCoordinates);
   periodicRead(VOLTAGE_PERIOD, VOLTAGE_FREQ, readVoltage);
   readTimestamp();
+  
 }
 
 /*
@@ -228,11 +230,13 @@ void readVoltage(int index){
 }
 
 float getVoltageBattery(){
-  float batteryVoltage = analogRead(BATTERY_PIN) * (5/1023);
+  float val = analogRead(BATTERY_PIN) * 5/1023.0;
+  return val;
 }
 
 float getVoltagePanel(){
-  float panelVoltage = analogRead(PANEL_PIN) * (5/1023);
+  float val = analogRead(PANEL_PIN) * 5/1023.0;
+  return val;
 }
 
 /*
@@ -252,6 +256,7 @@ void sendData(){
  */
 
 void mqttClientConfiguration(){
+  Serial.println("mqttClientConfiguration()");
   mqttClient.setClient(nbClient);
   mqttClient.setServer(mqttBroker, mqttPort); //Illustrations.marin.ntnu.no, 1883 
 }
@@ -261,6 +266,7 @@ void mqttClientConfiguration(){
  *  Returns true if succesful, false if not 
  */
 boolean makeConnections(){
+  Serial.println("makeConnections()");
   if(lteConnect()){
       return mqttConnect();
   }
@@ -285,7 +291,7 @@ boolean checkConnection(){
  * Tries to reconnect the LTE connection for 15000 milliseconds
  */
 boolean lteReconnect(){
-  Serial.println("lteConnect()");
+  Serial.println("LTE Reconnect()");
   unsigned long time_reference = millis();
   while(millis()-time_reference < 15000) {
     if(lteConnect()){
@@ -299,17 +305,20 @@ boolean lteReconnect(){
 }
 
 /*
- * Tries to make an LTE connection to the provider once
+ * Tries to make an LTE connection to the provider
+ * nbAccess.begin() is a blocking call, this function will NOT return before connection is made...
+ * Further development: Add timeout 
  */
 boolean lteConnect(){
-  return (nbAccess.begin(PIN_CODE) == NB_READY) && (gprs.attachGPRS() == GPRS_READY)
+  Serial.println("lteConnect()");
+  return (nbAccess.begin(PIN_CODE) == NB_READY) && (gprs.attachGPRS() == GPRS_READY);
 }
 
 /*
  * Tries to reconnect the MQTT client to the broker for 15000 milliseconds
  */
 boolean mqttReconnect(){
-  Serial.println("Reconnect()");
+  Serial.println("MQTT Reconnect()");
   unsigned long time_reference = millis();
   while (millis() - time_reference < 15000) {
     if(mqttConnect()){
@@ -328,6 +337,7 @@ boolean mqttReconnect(){
  * Tries to make an MQTT connection to the broker once
  */
 boolean mqttConnect(){
+  Serial.println("mqttConnect()");
   return mqttClient.connect(MQTT_CLIENT_NAME, MQTT_CLIENT_USERNAME, MQTT_CLIENT_PASSWORD);
 }
 
@@ -374,6 +384,13 @@ void updateJson() {
   data["general"]["light"] = array_avg(light_res, (int)ceil(LIGHT_FREQ*LIGHT_PERIOD));
   data["general"]["longitude"] = array_avg(longitude, (int)ceil(GPS_FREQ*GPS_PERIOD));
   data["general"]["latitude"] = array_avg(latitude, (int)ceil(GPS_FREQ*GPS_PERIOD));
+  data["personal"]["battery_voltage"] = array_avg(battery_voltage, (int)ceil(VOLTAGE_FREQ*VOLTAGE_PERIOD));
+  data["personal"]["panel_voltage"] = array_avg(panel_voltage, (int)ceil(VOLTAGE_FREQ*VOLTAGE_PERIOD));
+}
+
+void printData(){
+  serializeJson(data, Serial);
+  Serial.println();
 }
 
 /*
