@@ -70,12 +70,12 @@ Geolocation currentLocation; //GPS struct
  */
  
 #define MQTT_CLIENT_NAME "ntnu_test"
-#define MQTT_CLIENT_USERNAME "test"
-#define MQTT_CLIENT_PASSWORD "test"
+#define MQTT_CLIENT_USERNAME "ntnu-agnes"
+#define MQTT_CLIENT_PASSWORD "hemmelig"
 const char PIN_CODE[] = "";
 char mqttBroker[] = "illustrations.marin.ntnu.no";
 int mqttPort = 1883;
-char pubTopic[] = "ntnu/client_id/1";
+char pubTopic[] = "ntnu/ntnu-agnes/data";
 
 NBClient nbClient;
 GPRS gprs;
