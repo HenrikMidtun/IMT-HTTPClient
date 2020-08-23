@@ -34,20 +34,20 @@ GP20U7 gps = GP20U7(Serial1); //RX pin for Serial1 (PIN 13, MKR 1500)
  * Frequency (Hz) and Period (seconds) of sensor measurements
  */
 #define WATER_FREQ      0.2
-#define WATER_PERIOD    0
+#define WATER_PERIOD    10
 #define AIR_FREQ        0.2
-#define AIR_PERIOD      0
+#define AIR_PERIOD      10
 #define LIGHT_FREQ      0.2
 #define LIGHT_PERIOD    5
 #define GPS_FREQ        1
-#define GPS_PERIOD      0
+#define GPS_PERIOD      10
 #define VOLTAGE_FREQ    0.2
 #define VOLTAGE_PERIOD  5
 
 /*
  * Message frequency (seconds)
  */
-#define MSG_INTERVAL 10
+#define MSG_INTERVAL 180
 
 /*
  * JSON and global data fields
@@ -69,7 +69,7 @@ Geolocation currentLocation; //GPS struct
  * Network
  */
  
-#define MQTT_CLIENT_NAME "ntnu_test"
+#define MQTT_CLIENT_NAME "NTNU_AGNES"
 #define MQTT_CLIENT_USERNAME "ntnu-agnes"
 #define MQTT_CLIENT_PASSWORD "hemmelig"
 const char PIN_CODE[] = "";
@@ -101,7 +101,11 @@ void loop()
   clearData();
   readData();
   updateJson();
-  if(checkConnection()) sendData();   //comment out if no network, blocking function lteConnect
+  if(checkConnection()){
+    readTimestamp();
+    sendData();   //comment out if no network, blocking function lteConnect
+  }
+  printData();
   unsigned long time_elapsed = millis() - time_reference;
   waitRoutine(time_elapsed);
 }
@@ -158,8 +162,6 @@ void readData() {
   periodicRead(LIGHT_PERIOD, LIGHT_FREQ, readLightIntensity);
   periodicRead(GPS_PERIOD, GPS_FREQ, readCoordinates);
   periodicRead(VOLTAGE_PERIOD, VOLTAGE_FREQ, readVoltage);
-  readTimestamp();
-  
 }
 
 /*
@@ -221,6 +223,7 @@ int getCoordinates() {
 void readTimestamp(){
   if (nbClient.connected()){
     timestamp = nbAccess.getLocalTime();
+    data["general"]["timestamp"] = timestamp;
   }
 }
 
@@ -284,7 +287,7 @@ boolean checkConnection(){
   if(nbClient.connected()){
     return mqttReconnect();  
   }
-  return lteReconnect();
+  return lteReconnect() && mqttReconnect();
 }
 
 /*
@@ -384,8 +387,8 @@ void updateJson() {
   data["general"]["light"] = array_avg(light_res, (int)ceil(LIGHT_FREQ*LIGHT_PERIOD));
   data["general"]["longitude"] = array_avg(longitude, (int)ceil(GPS_FREQ*GPS_PERIOD));
   data["general"]["latitude"] = array_avg(latitude, (int)ceil(GPS_FREQ*GPS_PERIOD));
-  data["personal"]["battery_voltage"] = array_avg(battery_voltage, (int)ceil(VOLTAGE_FREQ*VOLTAGE_PERIOD));
-  data["personal"]["panel_voltage"] = array_avg(panel_voltage, (int)ceil(VOLTAGE_FREQ*VOLTAGE_PERIOD));
+  //data["personal"]["battery_voltage"] = array_avg(battery_voltage, (int)ceil(VOLTAGE_FREQ*VOLTAGE_PERIOD));
+  //data["personal"]["panel_voltage"] = array_avg(panel_voltage, (int)ceil(VOLTAGE_FREQ*VOLTAGE_PERIOD));
 }
 
 void printData(){
