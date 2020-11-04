@@ -27,6 +27,7 @@ GP20U7 gps = GP20U7(Serial1); //RX pin for Serial1 (PIN 13, MKR 1500)
  * JSON and global data fields
  */
 StaticJsonDocument<200> DATA;
+char DATA_POINTS[NUM_READINGS][200];
 float water_temp;
 float air_temp;
 float air_humidity;
@@ -137,18 +138,11 @@ String getIMEI(){
     return "Could not find IMEI";
   }
 }
-void printIMEI(){
-  Serial.print("IMEI: ");
-  Serial.println(getIMEI());
-}
 
 void setTopic(){
   strcpy(pubTopic,"ntnu/");
   strcat(pubTopic, MQTT_CLIENT_NAME);
   strcat(pubTopic,"/data");
-}
-void printTopic(){
-  Serial.println(pubTopic);
 }
 
 boolean lteConnect(){
@@ -248,19 +242,16 @@ void updateData() {
     DATA["water_temp"] = water_temp;
   }
 }
-void printData(){
-  serializeJson(DATA, Serial);
-  Serial.println();
-}
+
 void sendData(){
-  Serial.println("sendData()");
   char buffer[200];
-  size_t n = serializeJson(DATA, buffer);
-  mqttClient.publish(pubTopic, buffer, n);
-  Serial.println("-> Published data");
+  size_t n;
+  for(int i=0; i<NUM_READINGS; i++){
+    n = serializeJson(DATA, buffer);
+    mqttClient.publish(pubTopic, buffer, n);
+  }
 }
 void updateReadings() {
-  Serial.println("updateReadings()");
   if(air_sensor_attached){
     updateAirSensor();
   }
@@ -268,6 +259,8 @@ void updateReadings() {
     updateWaterTemp();
   }
   updateCoordinates();
+  updateTimestamp();
+
 }
 
 void beginSerial(){
@@ -295,8 +288,7 @@ void IMT_READ(){
 
 void IMT_SEND(){
   if(checkConnection()){
-    updateTimestamp();
-    sendData();   //comment out if no network, blocking function lteConnect
+    sendData();
   }
 }
 
@@ -305,4 +297,30 @@ void DEEP_SLEEP(int seconds) {
     LowPower.attachInterruptWakeup(RTC_ALARM_WAKEUP, beginSerial, CHANGE); //Forsøk på å få serial output
     LowPower.sleep(seconds*1000); //Kobler ut Serial
   }  
+}
+
+void STORE_DATA(int index){
+  char buff[200];
+  serializeJson(DATA,buff);
+  strcpy(DATA_POINTS[index], buff);
+}
+
+void printStorage(){
+  for(int i=0; i<NUM_READINGS; i++){
+    Serial.println(DATA_POINTS[i]);
+  }
+}
+
+void printIMEI(){
+  Serial.print("IMEI: ");
+  Serial.println(getIMEI());
+}
+
+void printTopic(){
+  Serial.println(pubTopic);
+}
+
+void printData(){
+  serializeJson(DATA, Serial);
+  Serial.println();
 }
