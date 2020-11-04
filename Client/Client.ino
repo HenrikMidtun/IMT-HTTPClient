@@ -13,18 +13,39 @@ void setup()
 
 void loop()
 {
-  IMT_READ(); //Leser standard sensorer
-  /*
-    Start på egen kode
-  */
+
   float windspeed = getWindspeed();
   DATA["windspeed"] = windspeed;
-  /*
-    Slutt egen kode
-  */
-  IMT_SEND();
-  delay(60000*60);
+
+  
+
+  int n = 3;
+  int period = 1; //minutes
+  int interval = (period*60*1000)/n;
+  uint32_t t0,t1;
+  for(int i=0; i<n; i++){
+    t0 = millis();
+    IMT_READ(); //Leser standard sensorer
+    /*
+      Start på egen kode
+    */
+
+    Serial.println("DoReading()");
+
+    /*
+      Slutt egen kode
+    */
+    if(i == n-1){
+      Serial.println("sendData()");
+      //IMT_SEND();
+    }
+    t1 = millis();
+    uint32_t duration = t1-t0;
+    delay(interval-duration);
+  }
+
   //DEEP_SLEEP(60*60); Uncomment når dere ikke lenger trenger å følge med i Serial Monitor.
+  //delay(60000*60);
 }
 
 float getWindspeed(){
