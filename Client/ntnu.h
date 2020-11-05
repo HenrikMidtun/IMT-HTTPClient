@@ -4,15 +4,9 @@
 #define ARDUINOJSON_ENABLE_STD_STREAM 0
 #include <ArduinoJson.h>
 
-/*
-    Felter som kan endres på
-*/
-#define NUM_READINGS 3 //Hvor mange målinger i løpet av en periode
-#define PERIOD 1 //minutes
-
 extern StaticJsonDocument<200> DATA;
 
-void IMT_SETUP();
+void IMT_SETUP(int n);
 void IMT_READ();
 void IMT_SEND();
 void STORE_DATA(int index);

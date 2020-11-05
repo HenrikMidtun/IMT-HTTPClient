@@ -17,7 +17,8 @@ GP20U7 gps = GP20U7(Serial1); //RX pin for Serial1 (PIN 13, MKR 1500)
  * JSON and global data fields
  */
 StaticJsonDocument<200> DATA;
-char DATA_POINTS[NUM_READINGS][200];
+char **DATA_POINTS;
+int NUM_READINGS;
 float longitude;
 float latitude;
 unsigned long timestamp;
@@ -34,6 +35,7 @@ GPRS gprs;
 NB nbAccess;
 PubSubClient mqttClient;
 NBModem modem;
+
 
 /*
  * Sensor reads
@@ -77,21 +79,6 @@ void updateTimestamp(){
 void mqttClientConfiguration(){
   mqttClient.setClient(nbClient);
   mqttClient.setServer(mqttBroker, mqttPort); //Illustrations.marin.ntnu.no, 1883 
-}
-
-void setIMEI(){
-  modem.begin();
-  IMEI = modem.getIMEI();
-  while(IMEI == NULL || IMEI == ""){
-    IMEI = modem.getIMEI();
-    while(!modem.begin()){;}
-  }
-}
-
-void setTopic(){
-  strcpy(pubTopic,"ntnu/");
-  strcat(pubTopic, IMEI.c_str());
-  strcat(pubTopic,"/data");
 }
 
 boolean lteConnect(){
@@ -203,17 +190,50 @@ void beginSerial(){
   while(!Serial){;}
 }
 
+void setIMEI(){
+  modem.begin();
+  IMEI = modem.getIMEI();
+  while(IMEI == NULL || IMEI == ""){
+    IMEI = modem.getIMEI();
+    while(!modem.begin()){;}
+  }
+}
+
+void setTopic(){
+  strcpy(pubTopic,"ntnu/");
+  strcat(pubTopic, IMEI.c_str());
+  strcat(pubTopic,"/data");
+}
+
+void setNReadings(int n){
+  if(n > 0){
+    NUM_READINGS = n;
+  }
+  else{
+    NUM_READINGS = 1;
+  }
+}
+
+void initDataPoints(){
+  DATA_POINTS = new char*[NUM_READINGS];
+  for(int i=0; i<NUM_READINGS; i++){
+    DATA_POINTS[i] = new char[200];
+  }
+}
+
 void networkSetup(){
   mqttClientConfiguration();
   makeConnections();
 }
 
-void IMT_SETUP(){
+void IMT_SETUP(int n){
   beginSerial();
   setIMEI();
   printIMEI();
   setTopic();
   gpsBegin();
+  setNReadings(n);
+  initDataPoints();
   //networkSetup();
 }
 

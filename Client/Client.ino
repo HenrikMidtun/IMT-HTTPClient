@@ -9,7 +9,8 @@
   Variabelen som endres er *MQTT_CLIENT_NAME*.
 */
 
-
+#define NUM_READINGS 3 //Hvor mange målinger i løpet av en periode
+#define PERIOD 1 //minutter
 
 #define ONE_WIRE_BUS 5
 OneWire oneWire(ONE_WIRE_BUS);
@@ -23,7 +24,7 @@ float air_pressure;
 
 void setup()
 {  
-  IMT_SETUP();
+  IMT_SETUP(NUM_READINGS);
 
   if (waterTempSensor.begin() == false){
     Serial.println("WARNING: Failed to communicate with DS18B20");
@@ -62,10 +63,8 @@ void loop()
     }
     t1 = millis();
     uint32_t duration = t1-t0;
-    delay(interval-duration);
+    delay(interval-duration); //DEEP_SLEEP(interval-duration); //bytt når dere ikke lenger trenger å følge med i Serial Monitor.
   }
-  DEEP_SLEEP(60*60); //Uncomment når dere ikke lenger trenger å følge med i Serial Monitor.
-  //delay(60000*60);
 }
 
 void updateAirSensor(){
@@ -82,7 +81,7 @@ void updateWaterTemp() {
   {
     if (millis() - timeout >= 800) // check for timeout, 800ms
     {
-      water_temp = -99; //Greide ikke å ta en måling, setter til en vilkårlig urealistisk verdi.
+      water_temp = -99; //Greide ikke å ta en måling, setter til en vilkårlig urealistisk verdi. ;)
     }
   }
   water_temp = waterTempSensor.getTempC();
