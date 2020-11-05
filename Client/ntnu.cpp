@@ -3,10 +3,6 @@
  */
 #include "ntnu.h"
 #include "Arduino.h"
-#include <OneWire.h>
-#include <Wire.h>
-#include <DS18B20.h>
-#include "SparkFunBME280.h"
 #include <MKRNB.h>
 #include <PubSubClient.h>
 #include <gp20u7.h>
@@ -15,12 +11,6 @@
 /*
    Sensor declarations and PINS
 */
-#define ONE_WIRE_BUS 5
-OneWire oneWire(ONE_WIRE_BUS);
-DS18B20 waterTempSensor(&oneWire);
-bool water_sensor_attached = true;
-BME280 airSensor;
-bool air_sensor_attached = true;
 GP20U7 gps = GP20U7(Serial1); //RX pin for Serial1 (PIN 13, MKR 1500)
 
 /*
@@ -28,10 +18,6 @@ GP20U7 gps = GP20U7(Serial1); //RX pin for Serial1 (PIN 13, MKR 1500)
  */
 StaticJsonDocument<200> DATA;
 char DATA_POINTS[NUM_READINGS][200];
-float water_temp;
-float air_temp;
-float air_humidity;
-float air_pressure;
 float longitude;
 float latitude;
 unsigned long timestamp;
@@ -51,45 +37,8 @@ NBModem modem;
 /*
  * Sensor reads
  */
-void sensorBegin(){
+void gpsBegin(){
   gps.begin();
-  if (waterTempSensor.begin() == false){
-    Serial.println("WARNING: Failed to communicate with DS18B20");
-    water_sensor_attached = false;
-  }
-  else{
-    Wire.begin();
-  }
-  if (airSensor.beginI2C() == false)
-  {
-    Serial.println("WARNING: Failed to communicate with BME280.");
-    air_sensor_attached = false;
-  }
-}
-
-void updateAirSensor(){
-  air_temp = airSensor.readTempC();
-  air_humidity = airSensor.readFloatHumidity();
-  air_pressure = airSensor.readFloatPressure();
-}
-
-float getWaterTemp() {
-  waterTempSensor.requestTemperatures();
-  float w_temp = 0;
-  uint32_t timeout = millis();
-  while (!waterTempSensor.isConversionComplete())
-  {
-    if (millis() - timeout >= 800) // check for timeout, 800ms
-    {
-      return w_temp;
-    }
-  }
-  w_temp = waterTempSensor.getTempC();
-  return w_temp;
-}
-
-void updateWaterTemp(){
-  water_temp = getWaterTemp();
 }
 
 int getCoordinates() {
@@ -233,14 +182,6 @@ void updateData() {
   DATA["timestamp"] = timestamp;
   DATA["longitude"] = longitude;
   DATA["latitude"] = latitude;
-  if(air_sensor_attached){
-    DATA["air_temp"] = air_temp;
-    DATA["humidity"] = air_humidity;
-    DATA["pressure"] = air_pressure;
-  }
-  if(water_sensor_attached){
-    DATA["water_temp"] = water_temp;
-  }
 }
 
 void sendData(){
@@ -251,16 +192,10 @@ void sendData(){
     mqttClient.publish(pubTopic, buffer, n);
   }
 }
+
 void updateReadings() {
-  if(air_sensor_attached){
-    updateAirSensor();
-  }
-  if(water_sensor_attached){
-    updateWaterTemp();
-  }
   updateCoordinates();
   updateTimestamp();
-
 }
 
 void beginSerial(){
@@ -277,7 +212,7 @@ void IMT_SETUP(){
   beginSerial();
   printIMEI();
   setTopic();
-  sensorBegin();
+  gpsBegin();
   //networkSetup();
 }
 
