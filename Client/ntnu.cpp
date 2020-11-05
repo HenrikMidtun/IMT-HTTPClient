@@ -8,6 +8,8 @@
 #include <gp20u7.h>
 #include "ArduinoLowPower.h"
 
+#define NETWORK_TIMEOUT 240 //seconds
+
 /*
    Sensor declarations and PINS
 */
@@ -31,6 +33,7 @@ int mqttPort = 1883;
 char pubTopic[100]; //format: ntnu/username/data
 
 NBClient nbClient;
+NBScanner scannerNetworks;
 GPRS gprs;
 NB nbAccess;
 PubSubClient mqttClient;
@@ -84,25 +87,22 @@ void mqttClientConfiguration(){
 boolean lteConnect(){
 /*
  * Tries to make an LTE connection to the provider
- * nbAccess.begin() is a blocking call, this function will NOT return before connection is made...
- * Further development: Add timeout 
  */
-  Serial.println("lteConnect()");
   return (nbAccess.begin(PIN_CODE) == NB_READY) && (gprs.attachGPRS() == GPRS_READY);
 }
 
 boolean lteReconnect(){
 /*
- * Tries to reconnect the LTE connection for 15000 milliseconds
+ * Tries to reconnect the LTE connection with the provider.
+ * Tries to reconnect for at least the duration of NETWORK_TIMEOUT
  */
   Serial.println("LTE Reconnect()");
   unsigned long time_reference = millis();
-  while(millis()-time_reference < 15000) {
+  while(millis()-time_reference < NETWORK_TIMEOUT*1000) {
     if(lteConnect()){
       Serial.println("-> LTE Reconnected");
       return true;
     }
-    delay(200);
   }
   Serial.println("-> LTE Reconnect timed out");
   return false;
@@ -110,29 +110,30 @@ boolean lteReconnect(){
 
 boolean mqttConnect(){
 /*
- * Tries to make an MQTT connection to the broker once
+ * Tries to make an MQTT connection to the broker once.
+ * This may take a while...  Approximately 3 minutes
  */
-  Serial.println("mqttConnect()");
   return mqttClient.connect(IMEI.c_str());
 }
 
 boolean mqttReconnect(){
 /*
- * Tries to reconnect the MQTT client to the broker for 15000 milliseconds
+ * Tries to reconnect the MQTT client to the broker.
+ * The client will try to reconnect at least until NETWORK_TIMEOUT has been reached
  */    
   Serial.println("MQTT Reconnect()");
-  unsigned long time_reference = millis();
-  while (millis() - time_reference < 15000) {
-    if(mqttConnect()){
-      Serial.println("-> MQTT Reconnected");    
-      return true;
+  if(!mqttClient.connected()){
+    unsigned long time_reference = millis();
+    while(millis() - time_reference < NETWORK_TIMEOUT*1000){
+      if(mqttConnect()){
+        Serial.println("-> Client Reconnected");    
+        return true;
+      }
     }
-    else{
-      delay(200);
-    }
-  }
-  Serial.println("-> MQTT Reconnect timed out");
+  Serial.println("-> Client Reconnect timed out");
   return false;
+  }
+
 }
 
 boolean makeConnections(){
@@ -141,9 +142,13 @@ boolean makeConnections(){
  *  Returns true if succesful, false if not 
  */
   Serial.println("makeConnections()");
-  if(lteConnect()){
-      return mqttConnect();
+  if(lteReconnect()){
+    scannerNetworks.begin();
+    Serial.println(scannerNetworks.getCurrentCarrier());
+    return mqttReconnect();
+      
   }
+  Serial.println("WARNING: Could not make connections.");
   return false;
 }
 
@@ -222,6 +227,9 @@ void initDataPoints(){
 }
 
 void networkSetup(){
+  Serial.println("Network setup");
+  Serial.println("This may take a while...");
+  nbAccess.setTimeout(NETWORK_TIMEOUT*1000);
   mqttClientConfiguration();
   makeConnections();
 }
@@ -234,7 +242,7 @@ void IMT_SETUP(int n){
   gpsBegin();
   setNReadings(n);
   initDataPoints();
-  //networkSetup();
+  networkSetup();
 }
 
 void IMT_READ(){
@@ -248,10 +256,10 @@ void IMT_SEND(){
   }
 }
 
-void DEEP_SLEEP(int seconds) {
-  if(seconds > 0){
+void DEEP_SLEEP(int milliseconds) {
+  if(milliseconds > 0){
     LowPower.attachInterruptWakeup(RTC_ALARM_WAKEUP, beginSerial, CHANGE); //Forsøk på å få serial output
-    LowPower.sleep(seconds*1000); //Kobler ut Serial
+    LowPower.sleep(milliseconds); //Kobler ut Serial
   }  
 }
 
