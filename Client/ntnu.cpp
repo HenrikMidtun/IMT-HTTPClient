@@ -23,6 +23,7 @@ float latitude;
 unsigned long timestamp;
 Geolocation currentLocation; //GPS struct
 
+String IMEI = "";
 const char PIN_CODE[] = "";
 char mqttBroker[] = "illustrations.marin.ntnu.no";
 int mqttPort = 1883;
@@ -78,19 +79,18 @@ void mqttClientConfiguration(){
   mqttClient.setServer(mqttBroker, mqttPort); //Illustrations.marin.ntnu.no, 1883 
 }
 
-String getIMEI(){
-  if(modem.begin()){
-    String imei = modem.getIMEI();
-    return imei;
-  } 
-  else{
-    return "Could not find IMEI";
+void setIMEI(){
+  modem.begin();
+  IMEI = modem.getIMEI();
+  while(IMEI == NULL || IMEI == ""){
+    IMEI = modem.getIMEI();
+    while(!modem.begin()){;}
   }
 }
 
 void setTopic(){
   strcpy(pubTopic,"ntnu/");
-  strcat(pubTopic, MQTT_CLIENT_NAME);
+  strcat(pubTopic, IMEI.c_str());
   strcat(pubTopic,"/data");
 }
 
@@ -126,7 +126,7 @@ boolean mqttConnect(){
  * Tries to make an MQTT connection to the broker once
  */
   Serial.println("mqttConnect()");
-  return mqttClient.connect(MQTT_CLIENT_NAME);
+  return mqttClient.connect(IMEI.c_str());
 }
 
 boolean mqttReconnect(){
@@ -210,6 +210,7 @@ void networkSetup(){
 
 void IMT_SETUP(){
   beginSerial();
+  setIMEI();
   printIMEI();
   setTopic();
   gpsBegin();
@@ -248,7 +249,7 @@ void printStorage(){
 
 void printIMEI(){
   Serial.print("IMEI: ");
-  Serial.println(getIMEI());
+  Serial.println(IMEI);
 }
 
 void printTopic(){

@@ -7,8 +7,7 @@
 /*
     Felter som kan endres på
 */
-#define MQTT_CLIENT_NAME "352753096010838" //klientens navn, dere må endre dette til deres IMEI
-#define NUM_READINGS 3
+#define NUM_READINGS 3 //Hvor mange målinger i løpet av en periode
 #define PERIOD 1 //minutes
 
 extern StaticJsonDocument<200> DATA;

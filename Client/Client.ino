@@ -9,6 +9,8 @@
   Variabelen som endres er *MQTT_CLIENT_NAME*.
 */
 
+
+
 #define ONE_WIRE_BUS 5
 OneWire oneWire(ONE_WIRE_BUS);
 DS18B20 waterTempSensor(&oneWire);
