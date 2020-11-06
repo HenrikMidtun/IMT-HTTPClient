@@ -28,7 +28,7 @@ Geolocation currentLocation; //GPS struct
 
 String IMEI = "";
 const char PIN_CODE[] = "";
-char mqttBroker[] = "illustrations.marin.ntnu.no";
+char mqttBroker[] = "test.mosquitto.org";//"illustrations.marin.ntnu.no"
 int mqttPort = 1883;
 char pubTopic[100]; //format: ntnu/username/data
 
@@ -45,6 +45,8 @@ NBModem modem;
  */
 void gpsBegin(){
   gps.begin();
+  while(!gps.read()){;}
+  Serial.println("GPS ready");
 }
 
 int getCoordinates() {
@@ -139,7 +141,7 @@ boolean makeConnections(){
  */
   if(lteReconnect()){
     scannerNetworks.begin();
-    Serial.print("Network provider: ")
+    Serial.print("Network provider: ");
     Serial.println(scannerNetworks.getCurrentCarrier());
     
     return mqttReconnect();
