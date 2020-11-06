@@ -45,8 +45,6 @@ NBModem modem;
  */
 void gpsBegin(){
   gps.begin();
-  while(!gps.read()){;}
-  Serial.println("GPS ready");
 }
 
 int getCoordinates() {

@@ -48,7 +48,6 @@ void loop()
     /*
       Start på egen kode
     */
-   /*
     updateAirSensor();
     DATA["air_temp"] = air_temp;
     DATA["air_humidity"] = air_humidity;
@@ -56,7 +55,6 @@ void loop()
 
     updateWaterTemp();
     DATA["water_temp"] = water_temp;
-    */
     /*
       Slutt egen kode
     */
