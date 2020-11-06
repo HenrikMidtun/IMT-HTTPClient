@@ -139,7 +139,9 @@ boolean makeConnections(){
  */
   if(lteReconnect()){
     scannerNetworks.begin();
+    Serial.print("Network provider: ")
     Serial.println(scannerNetworks.getCurrentCarrier());
+    
     return mqttReconnect();
       
   }
