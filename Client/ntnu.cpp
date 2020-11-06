@@ -49,7 +49,7 @@ void gpsBegin(){
 
 int getCoordinates() {
   unsigned long time_reference = millis();
-  while(millis()-time_reference < 800 ){
+  while(millis()-time_reference < 2000 ){
     if (gps.read()) {
       currentLocation = gps.getGeolocation();
       return 1;
@@ -97,7 +97,6 @@ boolean lteReconnect(){
   unsigned long time_reference = millis();
   while(millis()-time_reference < NETWORK_TIMEOUT*1000) {
     if(lteConnect()){
-      Serial.println("-> LTE Connected");
       return true;
     }
   }
@@ -122,14 +121,12 @@ boolean mqttReconnect(){
     unsigned long time_reference = millis();
     while(millis() - time_reference < NETWORK_TIMEOUT*1000){
       if(mqttConnect()){
-        Serial.println("-> Client Connected");    
         return true;
       }
     }
   Serial.println("-> Client connection timed out");
   return false;
   }
-
 }
 
 boolean makeConnections(){
@@ -141,6 +138,8 @@ boolean makeConnections(){
     scannerNetworks.begin();
     Serial.print("Network provider: ");
     Serial.println(scannerNetworks.getCurrentCarrier());
+    Serial.print("Signal strength [0-31]: ");
+    Serial.println(scannerNetworks.getSignalStrength());
     
     return mqttReconnect();
       
