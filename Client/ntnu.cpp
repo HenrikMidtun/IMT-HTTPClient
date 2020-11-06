@@ -70,9 +70,7 @@ void updateCoordinates(){
 }
 
 void updateTimestamp(){
-  if (nbClient.connected()){
-    timestamp = nbAccess.getLocalTime();
-  }
+  timestamp = nbAccess.getLocalTime();
 }
 
 /*/
@@ -180,8 +178,7 @@ void sendData(){
   char buffer[200];
   size_t n;
   for(int i=0; i<NUM_READINGS; i++){
-    n = serializeJson(DATA, buffer);
-    mqttClient.publish(pubTopic, buffer, n);
+    mqttClient.publish(pubTopic, DATA_POINTS[i]);
   }
 }
 
