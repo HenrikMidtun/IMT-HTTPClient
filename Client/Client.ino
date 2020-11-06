@@ -1,5 +1,6 @@
 #include "ntnu.h"
 #include "SparkFunBME280.h"
+#include <Wire.h>
 #include <OneWire.h>
 #include <DS18B20.h>
 
@@ -12,7 +13,7 @@
 #define NUM_READINGS 3 //Hvor mange målinger i løpet av en periode
 #define PERIOD 1 //minutter
 
-#define ONE_WIRE_BUS 5
+#define ONE_WIRE_BUS 5 //analog?
 OneWire oneWire(ONE_WIRE_BUS);
 DS18B20 waterTempSensor(&oneWire);
 BME280 airSensor;
@@ -23,12 +24,13 @@ float air_humidity;
 float air_pressure;
 
 void setup()
-{  
+{ 
   IMT_SETUP(NUM_READINGS);
 
   if (waterTempSensor.begin() == false){
     Serial.println("WARNING: Failed to communicate with DS18B20");
   }
+  Wire.begin();
   if (airSensor.beginI2C() == false)
   {
     Serial.println("WARNING: Failed to communicate with BME280.");
