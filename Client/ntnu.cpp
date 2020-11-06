@@ -94,15 +94,14 @@ boolean lteReconnect(){
  * Tries to reconnect the LTE connection with the provider.
  * Tries to reconnect for at least the duration of NETWORK_TIMEOUT
  */
-  Serial.println("LTE Reconnect()");
   unsigned long time_reference = millis();
   while(millis()-time_reference < NETWORK_TIMEOUT*1000) {
     if(lteConnect()){
-      Serial.println("-> LTE Reconnected");
+      Serial.println("-> LTE Connected");
       return true;
     }
   }
-  Serial.println("-> LTE Reconnect timed out");
+  Serial.println("-> LTE connection timed out");
   return false;
 }
 
@@ -119,16 +118,15 @@ boolean mqttReconnect(){
  * Tries to reconnect the MQTT client to the broker.
  * The client will try to reconnect at least until NETWORK_TIMEOUT has been reached
  */    
-  Serial.println("MQTT Reconnect()");
   if(!mqttClient.connected()){
     unsigned long time_reference = millis();
     while(millis() - time_reference < NETWORK_TIMEOUT*1000){
       if(mqttConnect()){
-        Serial.println("-> Client Reconnected");    
+        Serial.println("-> Client Connected");    
         return true;
       }
     }
-  Serial.println("-> Client Reconnect timed out");
+  Serial.println("-> Client connection timed out");
   return false;
   }
 
@@ -139,7 +137,6 @@ boolean makeConnections(){
  *  Used for the initial connection.
  *  Returns true if succesful, false if not 
  */
-  Serial.println("makeConnections()");
   if(lteReconnect()){
     scannerNetworks.begin();
     Serial.println(scannerNetworks.getCurrentCarrier());
