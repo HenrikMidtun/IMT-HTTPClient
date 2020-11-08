@@ -28,16 +28,16 @@ Geolocation currentLocation; //GPS struct
 
 String IMEI = "";
 const char PIN_CODE[] = "";
-char mqttBroker[] = "test.mosquitto.org";//"illustrations.marin.ntnu.no"
-int mqttPort = 1883;
+char httpServer[] = "34.90.123.229";
+int port = 80;
 char pubTopic[100]; //format: ntnu/username/data
 
 NBClient nbClient;
 NBScanner scannerNetworks;
 GPRS gprs;
 NB nbAccess;
-PubSubClient mqttClient;
 NBModem modem;
+PubSubClient mqttClient;
 
 
 /*
@@ -73,14 +73,9 @@ void updateTimestamp(){
   timestamp = nbAccess.getLocalTime();
 }
 
-/*/
+/*
  * Network
  */
-
-void mqttClientConfiguration(){
-  mqttClient.setClient(nbClient);
-  mqttClient.setServer(mqttBroker, mqttPort); //Illustrations.marin.ntnu.no, 1883 
-}
 
 boolean lteConnect(){
 /*
@@ -104,23 +99,25 @@ boolean lteReconnect(){
   return false;
 }
 
-boolean mqttConnect(){
+boolean clientConnect(){
 /*
- * Tries to make an MQTT connection to the broker once.
- * This may take a while...  Approximately 3 minutes
+ * Tries to make a HTTP connection to the server once.
  */
-  return mqttClient.connect(IMEI.c_str());
+  Serial.println("clientConnect()");
+  return nbClient.connect(httpServer, port);
 }
 
-boolean mqttReconnect(){
+boolean clientReconnect(){
 /*
- * Tries to reconnect the MQTT client to the broker.
+ * Tries to reconnect the HTTP client to the server.
  * The client will try to reconnect at least until NETWORK_TIMEOUT has been reached
- */    
-  if(!mqttClient.connected()){
+ */
+  Serial.println("clientReconnect()");
+  if(!nbClient.connected()){
     unsigned long time_reference = millis();
     while(millis() - time_reference < NETWORK_TIMEOUT*1000){
-      if(mqttConnect()){
+      if(clientConnect()){
+        Serial.println("Client connected!");
         return true;
       }
     }
@@ -140,9 +137,7 @@ boolean makeConnections(){
     Serial.println(scannerNetworks.getCurrentCarrier());
     Serial.print("Signal strength [0-31]: ");
     Serial.println(scannerNetworks.getSignalStrength());
-    
-    return mqttReconnect();
-      
+    return clientReconnect();
   }
   Serial.println("WARNING: Could not make connections.");
   return false;
@@ -153,19 +148,15 @@ boolean checkConnection(){
  * true if connection is OK or reconnect is OK, 
  * false if no connection available after trying to reconnect
  */
-  if (mqttClient.connected()){
-    return true;
-  }
   if(nbClient.connected()){
-    return mqttReconnect();  
+    return true;  
   }
-  return lteReconnect() && mqttReconnect();
+  return lteReconnect() && clientReconnect();
 }
 
 /*
  * Utilities
  */
-
 void updateData() {
   DATA["timestamp"] = timestamp;
   DATA["longitude"] = longitude;
@@ -232,7 +223,6 @@ void networkSetup(){
   Serial.println("Network setup");
   Serial.println("This may take a while...");
   nbAccess.setTimeout(NETWORK_TIMEOUT*1000);
-  mqttClientConfiguration();
   makeConnections();
 }
 
