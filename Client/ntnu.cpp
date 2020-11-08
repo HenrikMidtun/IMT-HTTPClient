@@ -186,8 +186,15 @@ void updateReadings() {
 }
 
 void beginSerial(){
+  /*
+    Try to connect to Serial for a maximum of 5 seconds.
+    Timeout is here in case of Arduino being run on battery power.
+    Then Serial connection can not be established.
+  */
   Serial.begin(9600);
-  while(!Serial){;}
+
+  unsigned long time_reference = millis();  
+  while(!Serial && millis() - time_reference < 5000){;}
 }
 
 void setIMEI(){
