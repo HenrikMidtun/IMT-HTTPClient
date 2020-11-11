@@ -4,7 +4,6 @@
 #include "ntnu.h"
 #include "Arduino.h"
 #include <MKRNB.h>
-#include <PubSubClient.h>
 #include <gp20u7.h>
 #include "ArduinoLowPower.h"
 
@@ -18,31 +17,28 @@ GP20U7 gps = GP20U7(Serial1); //RX pin for Serial1 (PIN 13, MKR 1500)
 /*
  * JSON and global data fields
  */
-StaticJsonDocument<200> DATA;
-char **DATA_POINTS;
+
+float** IMT_DATA;
 int NUM_READINGS;
-float longitude;
-float latitude;
-unsigned long timestamp;
+int NUM_FIELDS;
 Geolocation currentLocation; //GPS struct
 
-String IMEI = "";
+String IMEI="";
 const char PIN_CODE[] = "";
-char httpServer[] = "34.90.123.229";
+char httpServer[] = "34.90.123.229"; //129.241.143.92
 int port = 80;
-char pubTopic[100]; //format: ntnu/username/data
 
 NBClient nbClient;
 NBScanner scannerNetworks;
 GPRS gprs;
 NB nbAccess;
 NBModem modem;
-PubSubClient mqttClient;
 
 
 /*
- * Sensor reads
+ * GPS
  */
+
 void gpsBegin(){
   gps.begin();
 }
@@ -56,21 +52,6 @@ int getCoordinates() {
     }
   }
   return 0;
-}
-
-void updateCoordinates(){
-  if(getCoordinates()){
-    longitude = currentLocation.longitude;
-    latitude = currentLocation.latitude;  
-  }
-  else{
-    longitude = 0;
-    latitude = 0;
-  }
-}
-
-void updateTimestamp(){
-  timestamp = nbAccess.getLocalTime();
 }
 
 /*
@@ -103,7 +84,6 @@ boolean clientConnect(){
 /*
  * Tries to make a HTTP connection to the server once.
  */
-  Serial.println("clientConnect()");
   return nbClient.connect(httpServer, port);
 }
 
@@ -112,12 +92,10 @@ boolean clientReconnect(){
  * Tries to reconnect the HTTP client to the server.
  * The client will try to reconnect at least until NETWORK_TIMEOUT has been reached
  */
-  Serial.println("clientReconnect()");
   if(!nbClient.connected()){
     unsigned long time_reference = millis();
     while(millis() - time_reference < NETWORK_TIMEOUT*1000){
       if(clientConnect()){
-        Serial.println("Client connected!");
         return true;
       }
     }
@@ -154,26 +132,145 @@ boolean checkConnection(){
   return lteReconnect() && clientReconnect();
 }
 
-/*
- * Utilities
- */
-void updateData() {
-  DATA["timestamp"] = timestamp;
-  DATA["longitude"] = longitude;
-  DATA["latitude"] = latitude;
+void networkSetup(){
+  Serial.println("Network setup");
+  Serial.println("This may take a while...");
+  nbAccess.setTimeout(NETWORK_TIMEOUT*1000);
+  makeConnections();
 }
 
-void sendData(){
-  char buffer[200];
-  size_t n;
-  for(int i=0; i<NUM_READINGS; i++){
-    mqttClient.publish(pubTopic, DATA_POINTS[i]);
+void HTTP_POST(char* path){
+  // Make a HTTP request:
+  nbClient.print("POST ");
+  nbClient.print(path);
+  nbClient.println(" HTTP/1.1");
+  nbClient.print("Host: ");
+  nbClient.println(httpServer);
+  nbClient.println("Connection: close");
+  nbClient.println();
+}
+
+void createMessagesandSend(char **fields, float *readings)
+{
+  /*
+    Create URLs with headers and data. Send HTTP request.
+  */
+  /*
+    Første melding, inneholder feltene som skal lagres
+  */
+  char first_path[] = "cgi-bin/update.cgi?";
+  strcat(first_path, IMEI.c_str());
+  strcat(first_path, ",time,la,lo");
+  for (int i = 0; i < NUM_FIELDS; i++)
+  {
+    strcat(first_path, ",");
+    strcat(first_path, fields[i]);
+  }
+  HTTP_POST(first_path);
+
+  /*
+    Resterende meldinger
+  */
+  for (int i = 0; i < NUM_READINGS; i++)
+  {
+    /*
+      IMT felter
+    */
+    char data_path[] = "cgi-bin/update.cgi?";
+    String buff;
+    buff += IMEI;
+    buff += ",";
+    buff += (int)IMT_DATA[i][1];
+    buff += ",";
+    buff += String(IMT_DATA[i][2], 2);
+    buff += ",";
+    buff += String(IMT_DATA[i][3], 2);
+
+    /*
+      Bruker felter
+    */
+    for (int j = 0; j < NUM_FIELDS; j++)
+    {
+      float val = *(readings + i * NUM_FIELDS + j);
+      buff += ",";
+      buff += String(val, 2);
+    }
+    strcat(data_path, buff.c_str());
+    buff = "";
+
+    HTTP_POST(data_path);
   }
 }
 
-void updateReadings() {
-  updateCoordinates();
-  updateTimestamp();
+/*
+ * DATA
+ */
+
+void initData(int n, int m){
+  if(n > 0){
+    NUM_READINGS = n;
+  }
+  else{
+    NUM_READINGS = 1;
+  }
+  if(m >= 0){
+    NUM_FIELDS = m;
+  }
+  else{
+    NUM_FIELDS = 0;
+  }
+  int imt_fields = 3;
+  IMT_DATA = (float**) malloc(sizeof(float*)*NUM_READINGS + sizeof(float)*imt_fields);
+  for(int i=0; i<NUM_READINGS; i++){
+    for(int j=0; j<imt_fields; j++){
+      IMT_DATA[i][j] = 0.;
+    }
+  }
+}
+
+void updateReadings(int i) {
+  IMT_DATA[i][1] = nbAccess.getLocalTime();
+
+  if(getCoordinates()){
+    IMT_DATA[i][2] = currentLocation.latitude;  
+    IMT_DATA[i][3] = currentLocation.longitude;
+  }
+  else{
+    IMT_DATA[i][2] = 0;
+    IMT_DATA[i][3] = 0;
+  }
+}
+
+void setIMEI(){
+  modem.begin();
+  IMEI = modem.getIMEI();
+  while(IMEI == NULL || IMEI == ""){
+    IMEI = modem.getIMEI();
+    while(!modem.begin()){;}
+  }
+}
+
+/*
+ *  Helpers
+ */
+
+void printIMEI(){
+  Serial.print("IMEI: ");
+  Serial.println(IMEI);
+}
+
+void printData(){
+    for(int i=0; i<NUM_READINGS; i++){
+    Serial.print("[");
+    for(int j=0; j<4; j++){
+      Serial.print(IMT_DATA[i][j]);
+      if(j != 3){
+        Serial.print(", ");
+      }
+    }
+    Serial.print("]");
+    Serial.println();
+  }
 }
 
 void beginSerial(){
@@ -188,66 +285,6 @@ void beginSerial(){
   while(!Serial && millis() - time_reference < 5000){;}
 }
 
-void setIMEI(){
-  modem.begin();
-  IMEI = modem.getIMEI();
-  while(IMEI == NULL || IMEI == ""){
-    IMEI = modem.getIMEI();
-    while(!modem.begin()){;}
-  }
-}
-
-void setTopic(){
-  strcpy(pubTopic,"ntnu/");
-  strcat(pubTopic, IMEI.c_str());
-  strcat(pubTopic,"/data");
-}
-
-void setNReadings(int n){
-  if(n > 0){
-    NUM_READINGS = n;
-  }
-  else{
-    NUM_READINGS = 1;
-  }
-}
-
-void initDataPoints(){
-  DATA_POINTS = new char*[NUM_READINGS];
-  for(int i=0; i<NUM_READINGS; i++){
-    DATA_POINTS[i] = new char[200];
-  }
-}
-
-void networkSetup(){
-  Serial.println("Network setup");
-  Serial.println("This may take a while...");
-  nbAccess.setTimeout(NETWORK_TIMEOUT*1000);
-  makeConnections();
-}
-
-void IMT_SETUP(int n){
-  beginSerial();
-  setIMEI();
-  printIMEI();
-  setTopic();
-  gpsBegin();
-  setNReadings(n);
-  initDataPoints();
-  networkSetup();
-}
-
-void IMT_READ(){
-  updateReadings();
-  updateData();
-}
-
-void IMT_SEND(){
-  if(checkConnection()){
-    sendData();
-  }
-}
-
 void DEEP_SLEEP(int milliseconds) {
   if(milliseconds > 0){
     LowPower.attachInterruptWakeup(RTC_ALARM_WAKEUP, beginSerial, CHANGE); //Forsøk på å få serial output
@@ -255,28 +292,25 @@ void DEEP_SLEEP(int milliseconds) {
   }  
 }
 
-void STORE_DATA(int index){
-  char buff[200];
-  serializeJson(DATA,buff);
-  strcpy(DATA_POINTS[index], buff);
+/*
+ *  IMT
+ */
+
+void IMT_SETUP(int num_reads, int num_fields){
+  beginSerial();
+  setIMEI();
+  printIMEI();
+  gpsBegin();
+  initData(num_reads, num_fields);
+  networkSetup();
 }
 
-void printStorage(){
-  for(int i=0; i<NUM_READINGS; i++){
-    Serial.println(DATA_POINTS[i]);
+void IMT_READ(int i){
+  updateReadings(i);
+}
+
+void IMT_SEND(char** fields, float* readings){
+  if(checkConnection()){
+    createMessagesandSend(fields, readings);
   }
-}
-
-void printIMEI(){
-  Serial.print("IMEI: ");
-  Serial.println(IMEI);
-}
-
-void printTopic(){
-  Serial.println(pubTopic);
-}
-
-void printData(){
-  serializeJson(DATA, Serial);
-  Serial.println();
 }
