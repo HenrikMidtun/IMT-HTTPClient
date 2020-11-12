@@ -52,20 +52,20 @@ void loop()
     readings[i][2] = airSensor.readFloatHumidity();
     readings[i][3] = airSensor.readFloatPressure();
     */
-    readings[i][0] = 3.14;
     /*
       Slutt egen kode
     */
     
     if(i == NUM_READINGS-1){
       IMT_SEND(fields, readings[0]);
+      Serial.println("Hey, were back mofo");
     }
     t1 = millis();
     uint32_t duration = t1-t0;
-    delay(interval-duration); //DEEP_SLEEP(interval-duration); //bytt når dere ikke lenger trenger å følge med i Serial Monitor.
+    SLEEP(interval-duration, true); //bytt til false når dere ikke lengre trenger å følge med i Serial Monitor, altså ved sjøsetting.
   }
   printReadings();
-  delay(100000);
+  for(;;){;} //for testing
 }
 
 void printReadings(){
