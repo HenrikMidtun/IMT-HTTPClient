@@ -1,7 +1,3 @@
-/*
- *  Authors:
- *      Henrik Sang Midtun, 11/11/2020
- */
 #include "ntnu.h"
 #include "Arduino.h"
 #include <MKRNB.h>
@@ -26,7 +22,7 @@ Geolocation currentLocation; //GPS struct
 
 String IMEI = "";
 const char PIN_CODE[] = "";
-char httpServer[] = "35.204.79.87"; //sensor.marin.ntnu.no
+char httpServer[] = "sensor.marin.ntnu.no";
 int port = 80;
 
 NBClient nbClient(false);
@@ -335,10 +331,12 @@ void SLEEP(int milliseconds, bool development)
 {
   if (milliseconds > 0)
   {
-    if(development){
+    if (development)
+    {
       delay(milliseconds);
     }
-    else{
+    else
+    {
       LowPower.attachInterruptWakeup(RTC_ALARM_WAKEUP, beginSerial, CHANGE); //Forsøk på å få serial output
       LowPower.sleep(milliseconds);                                          //Kobler ut Serial
     }

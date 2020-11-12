@@ -4,12 +4,6 @@
 #include <OneWire.h>
 #include <DS18B20.h>
 
-/*
-  Før dere begynner, gå inn i ntnu.h filen og endre til ønsket navn på gruppen deres.
-  Vårt forslag er å endre dette til deres unike IMEI som printes ut ved starten av programmet.
-  Variabelen som endres er *MQTT_CLIENT_NAME*.
-*/
-
 #define NUM_READINGS 3  //Hvor mange målinger i løpet av en periode
 #define NUM_FIELDS 4    //Hvor mange felter dere ønsker å sende
 #define PERIOD 1        //Perioden i minutter
@@ -46,26 +40,22 @@ void loop()
     /*
       Start på egen kode
     */
-    /*
     readings[i][0] = getWaterTemp();
     readings[i][1] = airSensor.readTempC();
     readings[i][2] = airSensor.readFloatHumidity();
     readings[i][3] = airSensor.readFloatPressure();
-    */
     /*
       Slutt egen kode
     */
     
     if(i == NUM_READINGS-1){
       IMT_SEND(fields, readings[0]);
-      Serial.println("Hey, were back mofo");
     }
     t1 = millis();
     uint32_t duration = t1-t0;
-    SLEEP(interval-duration, true); //bytt til false når dere ikke lengre trenger å følge med i Serial Monitor, altså ved sjøsetting.
+    SLEEP(interval-duration, true); //endre til false når dere ikke lengre trenger å følge med i Serial Monitor, altså ved sjøsetting.
   }
   printReadings();
-  for(;;){;} //for testing
 }
 
 void printReadings(){
