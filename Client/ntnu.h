@@ -9,5 +9,5 @@ void IMT_SEND(char** fields, float* readings);
 void SLEEP(int ms, bool dev_mode); //Kobler ut Serial port, så da får man ikke output fra Serial Monitor etter å ha kalt DEEP_SLEEP
 
 void printIMEI();
-void printData();
+void printDATA();
 #endif
