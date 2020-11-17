@@ -152,7 +152,7 @@ void HTTP_POST(char *path)
   // Make a HTTP request
   if (clientConnect())
   { //Ved mindre serveren har mulighet til å holde en 'persistent connection', så må klienten koble til igjen
-    nbClient.print("POST ");
+    nbClient.print("GET ");
     nbClient.print(path);
     nbClient.println(" HTTP/1.1");
     nbClient.print("Host: ");
@@ -171,7 +171,7 @@ void createMessageAndSend(char **fields, float *readings)
   /*
     Første melding, inneholder feltene som skal lagres
   */
-  char first_path[300] = "/cgi-bin/update.cgi?";
+  char first_path[300] = "cgi-bin/update.cgi?";
   strcat(first_path, IMEI.c_str());
   strcat(first_path, ",time,la,lo");
   for (int i = 0; i < NUM_FIELDS; i++)
@@ -180,7 +180,6 @@ void createMessageAndSend(char **fields, float *readings)
     strcat(first_path, fields[i]);
   }
   HTTP_POST(first_path);
-
   /*
     Resterende meldinger
   */
