@@ -15,7 +15,8 @@ GP20U7 gps = GP20U7(Serial1); //RX pin for Serial1 (PIN 13, MKR 1500)
  * JSON and global data fields
  */
 
-float **IMT_DATA;
+float GPS_DATA[20][2];
+long TIME_DATA[20][1];
 int NUM_READINGS;
 int NUM_FIELDS;
 Geolocation currentLocation; //GPS struct
@@ -171,7 +172,7 @@ void createMessageAndSend(char **fields, float *readings)
   /*
     Første melding, inneholder feltene som skal lagres
   */
-  char first_path[300] = "cgi-bin/update.cgi?";
+  char first_path[300] = "/cgi-bin/update.cgi?";
   strcat(first_path, IMEI.c_str());
   strcat(first_path, ",time,la,lo");
   for (int i = 0; i < NUM_FIELDS; i++)
@@ -192,11 +193,11 @@ void createMessageAndSend(char **fields, float *readings)
     String buff;
     buff.concat(IMEI);
     buff.concat(",");
-    buff.concat((int)IMT_DATA[i][1]);
+    buff.concat(TIME_DATA[i][0]);
     buff.concat(",");
-    buff.concat(String(IMT_DATA[i][2], 2));
+    buff.concat(String(GPS_DATA[i][0], 2));
     buff.concat(",");
-    buff.concat(String(IMT_DATA[i][3], 2));
+    buff.concat(String(GPS_DATA[i][1], 2));
 
     /*
       Bruker felter
@@ -220,7 +221,8 @@ void createMessageAndSend(char **fields, float *readings)
 void initData(int n, int m)
 {
   /*
-      Allocates memory for IMT_DATA
+      Allocates memory for GPS_DATA and TIME_DATA
+      Sets value of NUM_READINGS and NUM_FIELDS
   */
   if (n > 0)
   {
@@ -238,14 +240,18 @@ void initData(int n, int m)
   {
     NUM_FIELDS = 0;
   }
-  int imt_fields = 3;
-  IMT_DATA = (float **)malloc(sizeof(float *) * NUM_READINGS + sizeof(float) * imt_fields);
+
   for (int i = 0; i < NUM_READINGS; i++)
   {
-    for (int j = 0; j < imt_fields; j++)
+    for (int j = 0; j < 2; j++)
     {
-      IMT_DATA[i][j] = 0.;
+      GPS_DATA[i][j] = 0.;
     }
+  }
+
+  for (int i = 0; i < NUM_READINGS; i++)
+  {
+    TIME_DATA[i][0] = 0;
   }
 }
 
@@ -254,17 +260,17 @@ void updateReadings(int i)
   /*
     Updates IMT readings
   */
-  IMT_DATA[i][1] = nbAccess.getLocalTime();
+  TIME_DATA[i][0] = nbAccess.getLocalTime();
 
   if (getCoordinates())
   {
-    IMT_DATA[i][2] = currentLocation.latitude;
-    IMT_DATA[i][3] = currentLocation.longitude;
+    GPS_DATA[i][0] = currentLocation.latitude;
+    GPS_DATA[i][1] = currentLocation.longitude;
   }
   else
   {
-    IMT_DATA[i][2] = 0;
-    IMT_DATA[i][3] = 0;
+    GPS_DATA[i][0] = 0;
+    GPS_DATA[i][1] = 0;
   }
 }
 
@@ -292,15 +298,22 @@ void printIMEI()
   Serial.println(IMEI);
 }
 
-void printData()
+void printDATA()
 {
   for (int i = 0; i < NUM_READINGS; i++)
   {
     Serial.print("[");
-    for (int j = 0; j < 4; j++)
+    for (int j = 0; j < 3; j++)
     {
-      Serial.print(IMT_DATA[i][j]);
-      if (j != 3)
+      if (j > 0)
+      {
+        Serial.print(GPS_DATA[i][j]);
+      }
+      else
+      {
+        Serial.print(TIME_DATA[i][0]);
+      }
+      if (j != 2)
       {
         Serial.print(", ");
       }
